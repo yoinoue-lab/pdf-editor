@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -928,16 +929,22 @@ function loadPDF(event) {
 function loadPDFFile(file) {
   const reader = new FileReader();
   reader.onload = async (e) => {
-    pdfBytes = new Uint8Array(e.target.result);
-    const loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice() });
-    pdfDoc = await loadingTask.promise;
-    totalPages = pdfDoc.numPages;
-    currentPage = 1;
-    stamps = [];
-    await renderPage(currentPage);
-    document.getElementById('downloadBtn').disabled = false;
-    renderStampList();
-    showToast('PDFを読み込みました');
+    try {
+      pdfBytes = new Uint8Array(e.target.result);
+      const loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice() });
+      pdfDoc = await loadingTask.promise;
+      totalPages = pdfDoc.numPages;
+      currentPage = 1;
+      // 全書き込みリセット
+      stamps = []; lines = []; strokes = [];
+      stampIdCounter = 0; lineIdCounter = 0; strokeIdCounter = 0;
+      await renderPage(currentPage);
+      document.getElementById('downloadBtn').disabled = false;
+      showToast('PDFを読み込みました');
+    } catch(err) {
+      console.error(err);
+      showToast('PDF読み込みエラー: ' + err.message);
+    }
   };
   reader.readAsArrayBuffer(file);
 }
@@ -975,9 +982,8 @@ async function renderPage(pageNum) {
   container.appendChild(canvas);
   container.appendChild(overlay);
 
-  // Click to stamp
+  // Click to stamp (clickのみ、touchendは統合ハンドラで処理)
   canvas.addEventListener('click', onCanvasClick);
-  canvas.addEventListener('touchend', onCanvasTouchEnd);
 
   // Line drawing
   canvas.addEventListener('mousedown', onLineMouseDown);
@@ -985,7 +991,6 @@ async function renderPage(pageNum) {
   canvas.addEventListener('mouseup',   onLineMouseUp);
   canvas.addEventListener('touchstart', onLineTouchStart, { passive: false });
   canvas.addEventListener('touchmove',  onLineTouchMove,  { passive: false });
-  canvas.addEventListener('touchend',   onLineTouchEnd2,  { passive: false });
 
   // Freehand drawing
   canvas.addEventListener('mousedown', onFhMouseDown);
@@ -994,11 +999,9 @@ async function renderPage(pageNum) {
   canvas.addEventListener('mouseleave',onFhMouseUp);
   canvas.addEventListener('touchstart', onFhTouchStart, { passive: false });
   canvas.addEventListener('touchmove',  onFhTouchMove,  { passive: false });
-  canvas.addEventListener('touchend',   onFhTouchEnd,   { passive: false });
 
-  // Eraser
-  canvas.addEventListener('click',     onEraserClick);
-  canvas.addEventListener('touchend',  onEraserTouch, { passive: false });
+  // 統合touchendハンドラ（スタンプ・直線・手書き・消しゴムを1つで処理）
+  canvas.addEventListener('touchend', onUnifiedTouchEnd, { passive: false });
 
   ca.appendChild(container);
 
@@ -1324,8 +1327,18 @@ function undoLastLine() {
   renderLinesOnPage();
   showToast('直線を取り消しました');
 }
+// 統合touchendハンドラ
+function onUnifiedTouchEnd(e) {
+  if      (currentMode === 'stamp')     onCanvasTouchEnd(e);
+  else if (currentMode === 'line')      onLineTouchEnd2(e);
+  else if (currentMode === 'freehand')  onFhTouchEnd(e);
+  else if (currentMode === 'eraser')    onEraserTouch(e);
+  else if (currentMode === 'overwrite') onCanvasTouchEnd(e);
+}
+
 function onCanvasClick(e) {
-  if (currentMode !== 'stamp') return;
+  if (currentMode === 'eraser') { onEraserClick(e); return; }
+  if (currentMode !== 'stamp' && currentMode !== 'overwrite') return;
   if (!selectedPhrase) { showToast('先に文言を選択してください'); return; }
   const rect = e.target.getBoundingClientRect();
   const x = (e.clientX - rect.left) / scale;
