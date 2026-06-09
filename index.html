@@ -96,7 +96,7 @@
 
   /* ─── Left panel ─── */
   .side-panel {
-    width: 220px;
+    width: 190px;
     flex-shrink: 0;
     background: var(--surface);
     border-right: 1px solid var(--border);
@@ -339,6 +339,9 @@
   .mode-indicator.overwrite-mode { background: rgba(255,107,107,.2); color: var(--accent2); }
   .mode-indicator.line-mode     { background: rgba(78,205,196,.2); color: var(--accent3); }
   .mode-indicator.freehand-mode { background: rgba(255,183,77,.2); color: #ffb74d; }
+  .mode-indicator.eraser-mode   { background: rgba(180,180,200,.15); color: #aaaacc; }
+
+  .canvas-area.eraser-mode canvas { cursor: cell; }
 
   .canvas-area.line-mode canvas     { cursor: crosshair; }
   .canvas-area.freehand-mode canvas { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='4' cy='20' r='3' fill='%23ff6b6b'/%3E%3Cpath d='M6.5 17.5 L20 4' stroke='%23ff6b6b' stroke-width='2' fill='none'/%3E%3C/svg%3E") 4 20, crosshair; }
@@ -350,36 +353,6 @@
     pointer-events: none;
     z-index: 5;
   }
-
-  /* Right info panel */
-  .info-panel {
-    width: 180px;
-    flex-shrink: 0;
-    background: var(--surface);
-    border-left: 1px solid var(--border);
-    padding: 10px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .info-panel h3 { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; }
-  .stamp-list { display: flex; flex-direction: column; gap: 4px; }
-  .stamp-chip {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 5px 8px;
-    font-size: 11px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    transition: border-color .12s;
-  }
-  .stamp-chip:hover { border-color: var(--accent); }
-  .stamp-chip .chip-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .stamp-chip .chip-del { color: var(--accent2); font-size: 13px; flex-shrink: 0; }
 
   /* Toast */
   .toast {
@@ -410,6 +383,32 @@
     text-align: center;
     margin: 6px 10px;
   }
+
+  /* Submode toggle (draw / pan) */
+  .submode-toggle {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .submode-btn {
+    flex: 1;
+    padding: 6px 4px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text2);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+    text-align: center;
+  }
+  .submode-btn:hover { background: var(--border); color: var(--text); }
+  .submode-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  /* Pan cursor */
+  .canvas-area.pan-mode canvas { cursor: grab !important; }
+  .canvas-area.pan-mode.panning canvas { cursor: grabbing !important; }
 
   /* Color swatches */
   .color-swatches {
@@ -461,6 +460,7 @@
   <div class="mode-tab" id="tab-line" onclick="setMode('line')">📏 直線</div>
   <div class="mode-tab active" id="tab-stamp" onclick="setMode('stamp')">✏️ スタンプ</div>
   <div class="mode-tab" id="tab-freehand" onclick="setMode('freehand')">🖊 手書き</div>
+  <div class="mode-tab" id="tab-eraser" onclick="setMode('eraser')">🧹 消しゴム</div>
   <div class="mode-tab" id="tab-overwrite" onclick="setMode('overwrite')">🔄 上書き</div>
   <div class="mode-tab" id="tab-phrases" onclick="setMode('phrases')">📋 文言管理</div>
 </div>
@@ -514,6 +514,10 @@
     <!-- Line style controls (shown only in line mode) -->
     <div class="panel-section" id="lineStyleSection" style="display:none;">
       <label>直線スタイル</label>
+      <div class="submode-toggle" id="lineSubToggle">
+        <button class="submode-btn active" id="lineDrawBtn" onclick="setDrawSubMode('draw')">✏️ 描画</button>
+        <button class="submode-btn" id="linePanBtn" onclick="setDrawSubMode('pan')">🖐 移動/ズーム</button>
+      </div>
       <div class="style-row" style="margin-bottom:6px;">
         <span style="font-size:11px;color:var(--text2);">線の色</span>
         <div class="color-swatches" id="lineColorSwatches">
@@ -544,6 +548,10 @@
     <!-- Freehand style controls -->
     <div class="panel-section" id="freehandStyleSection" style="display:none;">
       <label>手書きスタイル</label>
+      <div class="submode-toggle" id="freehandSubToggle">
+        <button class="submode-btn active" id="fhDrawBtn" onclick="setDrawSubMode('draw')">✏️ 描画</button>
+        <button class="submode-btn" id="fhPanBtn" onclick="setDrawSubMode('pan')">🖐 移動/ズーム</button>
+      </div>
       <div class="style-row" style="margin-bottom:6px;">
         <span style="font-size:11px;color:var(--text2);">色</span>
         <div class="color-swatches" id="freehandColorSwatches">
@@ -562,6 +570,18 @@
         <button class="btn" style="font-size:11px;padding:5px 10px;width:100%;" onclick="undoLastStroke()">↩ 最後のストロークを取り消し</button>
       </div>
     </div>
+
+    <!-- Eraser controls -->
+    <div class="panel-section" id="eraserSection" style="display:none;">
+      <label>消しゴム</label>
+      <p style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:8px;">タップした手書き・直線・スタンプを削除します</p>
+      <div class="style-row" style="margin-bottom:8px;">
+        <span style="font-size:11px;color:var(--text2);width:52px;">感度</span>
+        <input type="range" id="eraserRadius" min="5" max="40" value="15" style="width:80px;">
+        <span id="eraserRadiusVal" style="font-size:11px;font-family:'DM Mono',monospace;">15</span>
+      </div>
+      <button class="btn danger" style="font-size:11px;padding:5px 10px;width:100%;" onclick="clearAllOnPage()">🗑 このページを全消去</button>
+    </div>
   </div>
 
   <!-- Center: Canvas -->
@@ -573,14 +593,9 @@
     </div>
   </div>
 
-  <!-- Right: Stamp list -->
-  <div class="info-panel">
-    <h3>追加済み文言</h3>
-    <div class="stamp-list" id="stampList"></div>
-  </div>
 </div>
 
-<!-- Page nav (appended inside canvasArea dynamically) -->
+<!-- Page nav -->
 
 <div class="toast" id="toast"></div>
 
@@ -611,6 +626,9 @@ let fhDrawing = false;
 let fhCurrentPoints = [];
 let currentFreehandColor = '#C62828';
 
+// 描画 or 移動ズームのサブモード（line/freehand時に使用）
+let drawSubMode = 'draw'; // 'draw' | 'pan'
+
 // Default phrases (建築・施設管理向け)
 let phrases = [
   '確認済', '修繕要', '点検完了', '要対応', '異常なし',
@@ -634,11 +652,106 @@ function setLineColor(color, btn) {
   btn.classList.add('active');
 }
 
+// ─── Draw/Pan submode ────────────────────────────────────────────
+function setDrawSubMode(m) {
+  drawSubMode = m;
+  // Update both toggles
+  ['lineDrawBtn','fhDrawBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', m === 'draw');
+  });
+  ['linePanBtn','fhPanBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', m === 'pan');
+  });
+  const ca = document.getElementById('canvasArea');
+  ca.classList.toggle('pan-mode', m === 'pan');
+  // canvas-area overflow: allow scroll when panning
+  ca.style.overflow = m === 'pan' ? 'scroll' : 'auto';
+}
+
+// ─── Pan state ───────────────────────────────────────────────────
+let panStartX = 0, panStartY = 0, panScrollX = 0, panScrollY = 0;
+let isPanning = false;
+
+function onPanMouseDown(e) {
+  if (currentMode !== 'line' && currentMode !== 'freehand') return;
+  if (drawSubMode !== 'pan') return;
+  isPanning = true;
+  panStartX = e.clientX;
+  panStartY = e.clientY;
+  const ca = document.getElementById('canvasArea');
+  panScrollX = ca.scrollLeft;
+  panScrollY = ca.scrollTop;
+  ca.classList.add('panning');
+  e.preventDefault();
+}
+function onPanMouseMove(e) {
+  if (!isPanning) return;
+  const ca = document.getElementById('canvasArea');
+  ca.scrollLeft = panScrollX - (e.clientX - panStartX);
+  ca.scrollTop  = panScrollY - (e.clientY - panStartY);
+}
+function onPanMouseUp() {
+  if (!isPanning) return;
+  isPanning = false;
+  document.getElementById('canvasArea').classList.remove('panning');
+}
+
+let pinchStartDist = 0;
+let pinchStartScale = 1.2;
+
+function onPanTouchStart(e) {
+  if (currentMode !== 'line' && currentMode !== 'freehand') return;
+  if (drawSubMode !== 'pan') return;
+  if (e.touches.length === 1) {
+    isPanning = true;
+    panStartX = e.touches[0].clientX;
+    panStartY = e.touches[0].clientY;
+    const ca = document.getElementById('canvasArea');
+    panScrollX = ca.scrollLeft;
+    panScrollY = ca.scrollTop;
+    e.preventDefault();
+  } else if (e.touches.length === 2) {
+    isPanning = false;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    pinchStartDist = Math.sqrt(dx*dx + dy*dy);
+    pinchStartScale = scale;
+    e.preventDefault();
+  }
+}
+function onPanTouchMove(e) {
+  if (currentMode !== 'line' && currentMode !== 'freehand') return;
+  if (drawSubMode !== 'pan') return;
+  if (e.touches.length === 1 && isPanning) {
+    const ca = document.getElementById('canvasArea');
+    ca.scrollLeft = panScrollX - (e.touches[0].clientX - panStartX);
+    ca.scrollTop  = panScrollY - (e.touches[0].clientY - panStartY);
+    e.preventDefault();
+  } else if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const newScale = Math.min(2.5, Math.max(0.5, pinchStartScale * (dist / pinchStartDist)));
+    const rounded = Math.round(newScale * 10) / 10;
+    if (rounded !== scale) {
+      scale = rounded;
+      document.getElementById('scaleSlider').value = scale;
+      document.getElementById('scaleVal').textContent = scale.toFixed(1) + '×';
+      renderPage(currentPage);
+    }
+    e.preventDefault();
+  }
+}
+function onPanTouchEnd() {
+  isPanning = false;
+}
+
 
 window.addEventListener('DOMContentLoaded', () => {
   renderPhraseList();
 
-  // Drag & drop on canvas area
   const ca = document.getElementById('canvasArea');
   ca.addEventListener('dragover', e => { e.preventDefault(); });
   ca.addEventListener('drop', e => {
@@ -646,12 +759,21 @@ window.addEventListener('DOMContentLoaded', () => {
     const file = e.dataTransfer.files[0];
     if (file && file.type === 'application/pdf') loadPDFFile(file);
   });
+
+  // Pan events on canvasArea (handles drag outside canvas too)
+  ca.addEventListener('mousedown',  onPanMouseDown);
+  ca.addEventListener('mousemove',  onPanMouseMove);
+  ca.addEventListener('mouseup',    onPanMouseUp);
+  ca.addEventListener('mouseleave', onPanMouseUp);
+  ca.addEventListener('touchstart', onPanTouchStart, { passive: false });
+  ca.addEventListener('touchmove',  onPanTouchMove,  { passive: false });
+  ca.addEventListener('touchend',   onPanTouchEnd);
 });
 
 // ─── Mode ────────────────────────────────────────────────────────
 function setMode(m) {
   currentMode = m;
-  ['stamp','overwrite','line','freehand','phrases'].forEach(t => {
+  ['stamp','overwrite','line','freehand','eraser','phrases'].forEach(t => {
     const el = document.getElementById('tab-'+t);
     if (el) el.classList.toggle('active', t === m);
   });
@@ -660,10 +782,24 @@ function setMode(m) {
   else if (m === 'overwrite') { ind.textContent = '上書きモード';   ind.className = 'mode-indicator overwrite-mode'; }
   else if (m === 'line')      { ind.textContent = '直線モード';     ind.className = 'mode-indicator line-mode'; }
   else if (m === 'freehand')  { ind.textContent = '手書きモード';   ind.className = 'mode-indicator freehand-mode'; }
+  else if (m === 'eraser')    { ind.textContent = '消しゴムモード'; ind.className = 'mode-indicator eraser-mode'; }
   else                        { ind.textContent = '文言管理';       ind.className = 'mode-indicator'; }
 
   document.getElementById('lineStyleSection').style.display     = m === 'line'     ? '' : 'none';
   document.getElementById('freehandStyleSection').style.display = m === 'freehand' ? '' : 'none';
+  document.getElementById('eraserSection').style.display        = m === 'eraser'   ? '' : 'none';
+
+  const ca = document.getElementById('canvasArea');
+  ca.classList.toggle('eraser-mode', m === 'eraser');
+
+  // モード切替時は描画モードにリセット
+  if (m === 'line' || m === 'freehand') {
+    setDrawSubMode('draw');
+  } else {
+    const ca = document.getElementById('canvasArea');
+    ca.classList.remove('pan-mode');
+    ca.style.overflow = 'auto';
+  }
 
   const ca = document.getElementById('canvasArea');
   ca.classList.toggle('line-mode',     m === 'line');
@@ -860,6 +996,10 @@ async function renderPage(pageNum) {
   canvas.addEventListener('touchmove',  onFhTouchMove,  { passive: false });
   canvas.addEventListener('touchend',   onFhTouchEnd,   { passive: false });
 
+  // Eraser
+  canvas.addEventListener('click',     onEraserClick);
+  canvas.addEventListener('touchend',  onEraserTouch, { passive: false });
+
   ca.appendChild(container);
 
   // Page nav
@@ -899,6 +1039,7 @@ function getCanvasPos(canvas, clientX, clientY) {
 
 function onLineMouseDown(e) {
   if (currentMode !== 'line') return;
+  if (drawSubMode !== 'draw') return;
   e.preventDefault();
   const { cx, cy } = getCanvasPos(e.target, e.clientX, e.clientY);
   lineDrawing = true;
@@ -920,6 +1061,7 @@ function onLineMouseUp(e) {
 
 function onLineTouchStart(e) {
   if (currentMode !== 'line') return;
+  if (drawSubMode !== 'draw') return;
   e.preventDefault();
   const t = e.touches[0];
   const { cx, cy } = getCanvasPos(e.target, t.clientX, t.clientY);
@@ -1042,6 +1184,7 @@ function setFreehandColor(color, btn) {
 
 function onFhMouseDown(e) {
   if (currentMode !== 'freehand') return;
+  if (drawSubMode !== 'draw') return;
   e.preventDefault();
   fhDrawing = true;
   fhCurrentPoints = [];
@@ -1062,6 +1205,7 @@ function onFhMouseUp(e) {
 
 function onFhTouchStart(e) {
   if (currentMode !== 'freehand') return;
+  if (drawSubMode !== 'draw') return;
   e.preventDefault();
   fhDrawing = true;
   fhCurrentPoints = [];
@@ -1206,7 +1350,6 @@ function placeStamp(pdfX, pdfY, canvasX, canvasY) {
   const id = ++stampIdCounter;
   stamps.push({ id, page: currentPage, pdfX, pdfY, canvasX, canvasY, text: selectedPhrase, fontSize: fs, color, style });
   renderStampsOnPage();
-  renderStampList();
   showToast('配置しました');
 }
 
@@ -1248,7 +1391,6 @@ function renderStampsOnPage() {
 function removeStamp(id) {
   stamps = stamps.filter(s => s.id !== id);
   renderStampsOnPage();
-  renderStampList();
   showToast('削除しました');
 }
 
@@ -1327,24 +1469,90 @@ function renderOverwriteHint() {
   }
 }
 
-// ─── Stamp list (right panel) ─────────────────────────────────────
-function renderStampList() {
-  const list = document.getElementById('stampList');
-  list.innerHTML = '';
-  if (!stamps.length) {
-    list.innerHTML = '<p style="font-size:12px;color:var(--text2)">まだありません</p>';
-    return;
-  }
-  stamps.forEach(s => {
-    const chip = document.createElement('div');
-    chip.className = 'stamp-chip';
-    chip.innerHTML = `<span style="font-size:10px;color:var(--text2)">P${s.page}</span><span class="chip-text">${escHtml(s.text)}</span><span class="chip-del" onclick="removeStamp(${s.id})">✕</span>`;
-    chip.addEventListener('click', (e) => {
-      if (e.target.classList.contains('chip-del')) return;
-      if (s.page !== currentPage) { goPage(s.page); }
-    });
-    list.appendChild(chip);
+// ─── Stamp list (right panel) - 削除済み ─────────────────────────
+function renderStampList() {} // パネル削除のため無効化
+
+// ─── Eraser ──────────────────────────────────────────────────────
+function getEraserRadius() {
+  return parseInt(document.getElementById('eraserRadius')?.value || 15);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sl = document.getElementById('eraserRadius');
+  if (sl) sl.addEventListener('input', () => {
+    document.getElementById('eraserRadiusVal').textContent = sl.value;
   });
+});
+
+function onEraserClick(e) {
+  if (currentMode !== 'eraser') return;
+  const { cx, cy } = getCanvasPos(e.target, e.clientX, e.clientY);
+  eraseAt(cx, cy);
+}
+
+function onEraserTouch(e) {
+  if (currentMode !== 'eraser') return;
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const { cx, cy } = getCanvasPos(e.target, t.clientX, t.clientY);
+  eraseAt(cx, cy);
+}
+
+function eraseAt(cx, cy) {
+  const r = getEraserRadius();
+  let erased = false;
+
+  // スタンプ削除（中心点との距離で判定）
+  const prevStampCount = stamps.length;
+  stamps = stamps.filter(s => {
+    if (s.page !== currentPage) return true;
+    const sx = s.canvasX + (s.text.length * s.fontSize * scale * 0.3);
+    const sy = s.canvasY + (s.fontSize * scale * 0.5);
+    const dist = Math.sqrt((cx - sx)**2 + (cy - sy)**2);
+    return dist > r * 2;
+  });
+  if (stamps.length !== prevStampCount) { renderStampsOnPage(); erased = true; }
+
+  // 直線削除（線分への最短距離で判定）
+  const prevLineCount = lines.length;
+  lines = lines.filter(l => {
+    if (l.page !== currentPage) return true;
+    return distToSegment(cx, cy, l.cx1, l.cy1, l.cx2, l.cy2) > r;
+  });
+  if (lines.length !== prevLineCount) { renderLinesOnPage(); erased = true; }
+
+  // 手書きストローク削除（いずれかの点が範囲内なら削除）
+  const prevStrokeCount = strokes.length;
+  strokes = strokes.filter(s => {
+    if (s.page !== currentPage) return true;
+    return !s.points.some(p => {
+      const pcx = p.px * scale, pcy = p.py * scale;
+      return Math.sqrt((cx - pcx)**2 + (cy - pcy)**2) <= r;
+    });
+  });
+  if (strokes.length !== prevStrokeCount) { renderStrokesOnPage(); erased = true; }
+
+  if (erased) showToast('削除しました');
+}
+
+// 点から線分への最短距離
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx*dx + dy*dy;
+  if (lenSq === 0) return Math.sqrt((px-ax)**2 + (py-ay)**2);
+  let t = ((px-ax)*dx + (py-ay)*dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.sqrt((px - (ax + t*dx))**2 + (py - (ay + t*dy))**2);
+}
+
+function clearAllOnPage() {
+  stamps  = stamps.filter(s => s.page !== currentPage);
+  lines   = lines.filter(l => l.page !== currentPage);
+  strokes = strokes.filter(s => s.page !== currentPage);
+  renderStampsOnPage();
+  renderLinesOnPage();
+  renderStrokesOnPage();
+  showToast('このページを全消去しました');
 }
 
 // ─── Download PDF ─────────────────────────────────────────────────
