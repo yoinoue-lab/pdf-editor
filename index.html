@@ -791,20 +791,17 @@ function setMode(m) {
   document.getElementById('eraserSection').style.display        = m === 'eraser'   ? '' : 'none';
 
   const ca = document.getElementById('canvasArea');
-  ca.classList.toggle('eraser-mode', m === 'eraser');
+  ca.classList.toggle('eraser-mode',   m === 'eraser');
+  ca.classList.toggle('line-mode',     m === 'line');
+  ca.classList.toggle('freehand-mode', m === 'freehand');
 
   // モード切替時は描画モードにリセット
   if (m === 'line' || m === 'freehand') {
     setDrawSubMode('draw');
   } else {
-    const ca = document.getElementById('canvasArea');
     ca.classList.remove('pan-mode');
     ca.style.overflow = 'auto';
   }
-
-  const ca = document.getElementById('canvasArea');
-  ca.classList.toggle('line-mode',     m === 'line');
-  ca.classList.toggle('freehand-mode', m === 'freehand');
 
   renderOverwriteHint();
 }
